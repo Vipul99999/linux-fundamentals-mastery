@@ -173,6 +173,17 @@ Delete     → rm
 
 ---
 
+# Remember: 
+```
+pwd.md  → Where am I?
+ls.md   → What is here?
+cd.md   → Move somewhere else
+mkdir.md→ Create places
+touch.md→ Create files
+cp.md   → Copy things
+mv.md   → Move things
+rm.md   → Remove things
+```
 # Files vs Directories
 
 A beginner mistake is confusing files and directories.
