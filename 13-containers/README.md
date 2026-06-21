@@ -1,7 +1,4 @@
-# `13-containers/README.md`
-
-````markdown
-# 13. Containers: From Linux Processes to Planet-Scale Infrastructure
+# Containers: From Linux Processes to Planet-Scale Infrastructure
 
 > "Containers are not magic boxes. Containers are Linux processes that have been isolated, packaged, and made portable."
 
