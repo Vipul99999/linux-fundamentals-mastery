@@ -1,0 +1,1401 @@
+# OOM Killer
+
+> Linux is designed to protect the machine, not your application.
+
+When memory becomes critically exhausted, Linux makes a decision:
+
+> Something must die so everything else can live.
+
+That decision is called:
+
+> OOM Killer.
+
+Out Of Memory Killer.
+
+---
+
+# Why This Exists
+
+Imagine a server.
+
+```text
+64 GB RAM
+
+PostgreSQL
+
+Redis
+
+Nginx
+
+NodeJS
+
+Docker
+
+Prometheus
+
+Thousands of users
+```
+
+Traffic suddenly explodes.
+
+Memory usage grows.
+
+Linux tries:
+
+```text
+Page reclaim
+
+↓
+
+Page cache eviction
+
+↓
+
+Swap
+
+↓
+
+More reclaim
+
+↓
+
+More swap
+```
+
+Nothing works.
+
+Question:
+
+> What should Linux do?
+
+Option 1:
+
+```text
+Freeze entire machine
+```
+
+Bad.
+
+Option 2:
+
+```text
+Kernel panic
+```
+
+Bad.
+
+Option 3:
+
+```text
+Kill one process and save the system
+```
+
+Linux chooses option 3.
+
+---
+
+# The Biggest Mindset Shift
+
+Stop thinking:
+
+```text
+OOM Killer broke my application.
+```
+
+Think:
+
+```text
+OOM Killer saved my infrastructure.
+```
+
+---
+
+# Mental Model: Linux Is A Spaceship
+
+Imagine:
+
+```text
+Spaceship = Linux Machine
+
+Oxygen = RAM
+
+Passengers = Applications
+
+Captain = Linux Kernel
+
+Emergency Officer = OOM Killer
+```
+
+Question:
+
+What happens when oxygen runs out?
+
+The captain must make difficult decisions.
+
+Not everyone survives.
+
+The ship must survive.
+
+---
+
+# What Is OOM Killer?
+
+OOM Killer is:
+
+> A Linux kernel mechanism that terminates processes when memory exhaustion threatens overall system stability.
+
+It is a survival mechanism.
+
+---
+
+# The Golden Rule
+
+> Linux prioritizes system survival over application survival.
+
+Always.
+
+---
+
+# Memory Exhaustion Lifecycle
+
+Linux does not immediately kill processes.
+
+It escalates.
+
+```text
+Healthy
+
+↓
+
+Pressure
+
+↓
+
+Memory Reclaim
+
+↓
+
+Swap
+
+↓
+
+Heavy Pressure
+
+↓
+
+OOM Killer
+```
+
+---
+
+# Memory Exhaustion Diagram
+
+```mermaid
+flowchart TD
+
+Healthy
+
+Pressure
+
+Reclaim
+
+Swap
+
+HeavyPressure
+
+OOM
+
+Healthy --> Pressure
+
+Pressure --> Reclaim
+
+Reclaim --> Swap
+
+Swap --> HeavyPressure
+
+HeavyPressure --> OOM
+```
+
+OOM is the last resort.
+
+---
+
+# Why OOM Exists
+
+RAM is finite.
+
+Demand is infinite.
+
+Examples:
+
+```text
+Memory leaks
+
+Traffic spikes
+
+Bad containers
+
+Bad queries
+
+Fork bombs
+
+Misconfigured applications
+```
+
+Eventually memory disappears.
+
+---
+
+# Linux Does Not Manage Bytes
+
+Linux manages:
+
+```text
+Pages
+```
+
+Usually:
+
+```text
+4 KB
+```
+
+units.
+
+Everything becomes pages.
+
+---
+
+# Memory Competition
+
+Everyone competes.
+
+```mermaid
+flowchart TD
+
+RAM
+
+Applications
+
+Kernel
+
+Cache
+
+Containers
+
+Databases
+
+RAM --> Applications
+
+RAM --> Kernel
+
+RAM --> Cache
+
+RAM --> Containers
+
+RAM --> Databases
+```
+
+---
+
+# Why Linux Cannot Kill The Kernel
+
+Important rule:
+
+Linux protects itself.
+
+Kernel memory is sacred.
+
+Linux usually targets:
+
+```text
+Userspace processes
+```
+
+Examples:
+
+```text
+Java
+
+Python
+
+NodeJS
+
+Redis
+
+PostgreSQL
+
+Containers
+```
+
+---
+
+# The OOM Decision Question
+
+Linux asks:
+
+> If I kill this process, will the system survive?
+
+This is the entire goal.
+
+---
+
+# How OOM Chooses Victims
+
+Linux calculates a score.
+
+Historically:
+
+```text
+oom_score
+```
+
+Higher score:
+
+```text
+More likely to die
+```
+
+---
+
+# Simplified Factors
+
+Linux evaluates:
+
+```text
+Memory usage
+
+Runtime
+
+Privileges
+
+Importance
+
+Adjustments
+
+Ownership
+```
+
+Not all processes are equal.
+
+---
+
+# OOM Selection Diagram
+
+```mermaid
+flowchart TD
+
+Processes
+
+OOMScore
+
+HighestScore
+
+Kill
+
+Processes --> OOMScore
+
+OOMScore --> HighestScore
+
+HighestScore --> Kill
+```
+
+---
+
+# Example
+
+Machine:
+
+```text
+16 GB RAM
+```
+
+Applications:
+
+```text
+Redis = 2 GB
+
+Nginx = 500 MB
+
+Java = 10 GB
+
+Prometheus = 1 GB
+```
+
+Java leaks memory.
+
+Java usually dies.
+
+---
+
+# OOM Score
+
+View score:
+
+```bash
+cat /proc/PID/oom_score
+```
+
+Example:
+
+```text
+850
+```
+
+High risk.
+
+---
+
+# OOM Score Adjustment
+
+View:
+
+```bash
+cat /proc/PID/oom_score_adj
+```
+
+Range:
+
+```text
+-1000
+
+↓
+
+1000
+```
+
+---
+
+# Meaning
+
+```text
+-1000 = Never kill
+
+0 = Default
+
+1000 = Kill first
+```
+
+---
+
+# Example
+
+Protect PostgreSQL:
+
+```bash
+echo -1000 > /proc/PID/oom_score_adj
+```
+
+Dangerous if misused.
+
+---
+
+# Why Protection Is Dangerous
+
+Imagine:
+
+```text
+Protect PostgreSQL
+
+Protect Redis
+
+Protect Nginx
+
+Protect Java
+```
+
+Everything protected.
+
+Question:
+
+Who dies?
+
+Linux has no options.
+
+Entire machine may become unstable.
+
+---
+
+# OOM Event Diagram
+
+```mermaid
+flowchart TD
+
+MemoryExhausted
+
+Kernel
+
+ChooseVictim
+
+KillProcess
+
+Recover
+
+MemoryExhausted --> Kernel
+
+Kernel --> ChooseVictim
+
+ChooseVictim --> KillProcess
+
+KillProcess --> Recover
+```
+
+---
+
+# Kernel Logs
+
+OOM events appear here:
+
+```bash
+dmesg
+```
+
+Or:
+
+```bash
+journalctl -k
+```
+
+---
+
+# Example OOM Log
+
+```text
+Out of memory:
+
+Killed process 4321 (java)
+
+Total-vm: 16384000kB
+
+anon-rss: 12000000kB
+```
+
+Very important.
+
+---
+
+# Anonymous Memory
+
+OOM often targets:
+
+```text
+Heap
+
+Stacks
+
+Private allocations
+```
+
+This is called:
+
+```text
+Anonymous memory
+```
+
+---
+
+# Why Java Often Dies
+
+Java applications are notorious.
+
+Bad configuration:
+
+```text
+16 GB RAM
+
+Java heap = 15 GB
+```
+
+Linux still needs memory.
+
+Disaster.
+
+---
+
+# Java Memory Diagram
+
+```mermaid
+flowchart TD
+
+RAM
+
+JavaHeap
+
+Linux
+
+NoSpace
+
+OOM
+
+RAM --> JavaHeap
+
+JavaHeap --> Linux
+
+Linux --> NoSpace
+
+NoSpace --> OOM
+```
+
+---
+
+# Databases And OOM
+
+Databases consume lots of RAM.
+
+Examples:
+
+```text
+PostgreSQL
+
+Redis
+
+Elasticsearch
+```
+
+Bad configurations are dangerous.
+
+---
+
+# PostgreSQL Example
+
+Memory consumers:
+
+```text
+Shared Buffers
+
+Connections
+
+Sorting
+
+Queries
+
+WAL
+```
+
+Everything grows.
+
+---
+
+# Redis Example
+
+Dangerous:
+
+```text
+No maxmemory
+```
+
+Traffic spike:
+
+```text
+Redis grows forever
+
+↓
+
+OOM
+```
+
+---
+
+# Docker Connection
+
+Containers do not have magical memory.
+
+Containers share machine RAM.
+
+Example:
+
+```bash
+docker run --memory=2g nginx
+```
+
+Docker uses:
+
+```text
+Linux cgroups
+```
+
+---
+
+# Docker Architecture
+
+```mermaid
+flowchart TD
+
+Container
+
+Cgroup
+
+Linux
+
+RAM
+
+Container --> Cgroup
+
+Cgroup --> Linux
+
+Linux --> RAM
+```
+
+Linux does the work.
+
+---
+
+# Container OOM
+
+Scenario:
+
+```text
+Memory limit = 1 GB
+
+Application = 1.5 GB
+
+Result = OOM
+```
+
+Container dies.
+
+Host survives.
+
+Good.
+
+---
+
+# Kubernetes Connection
+
+Example:
+
+```yaml
+resources:
+
+ requests:
+
+   memory: "512Mi"
+
+ limits:
+
+   memory: "1Gi"
+```
+
+Eventually becomes:
+
+```text
+Kubernetes
+
+↓
+
+Container Runtime
+
+↓
+
+Cgroups
+
+↓
+
+Linux
+```
+
+---
+
+# Kubernetes Diagram
+
+```mermaid
+flowchart TD
+
+Pod
+
+Container
+
+Cgroup
+
+Linux
+
+OOM
+
+Pod --> Container
+
+Container --> Cgroup
+
+Cgroup --> Linux
+
+Linux --> OOM
+```
+
+Everything eventually reaches Linux.
+
+---
+
+# Why Pods Restart
+
+Very common production issue.
+
+Lifecycle:
+
+```text
+Traffic spike
+
+↓
+
+Memory growth
+
+↓
+
+Limit exceeded
+
+↓
+
+OOM kill
+
+↓
+
+Restart
+```
+
+---
+
+# Pod Restart Diagram
+
+```mermaid
+flowchart TD
+
+Traffic
+
+MemoryGrowth
+
+OOM
+
+Restart
+
+Healthy
+
+Traffic --> MemoryGrowth
+
+MemoryGrowth --> OOM
+
+OOM --> Restart
+
+Restart --> Healthy
+```
+
+---
+
+# Memory Leaks Cause OOM
+
+Very common.
+
+Example:
+
+```python
+cache = []
+
+while True:
+
+ cache.append(data)
+```
+
+Memory grows forever.
+
+Eventually:
+
+```text
+OOM
+```
+
+---
+
+# Leak Diagram
+
+```mermaid
+flowchart TD
+
+Application
+
+Allocate
+
+Leak
+
+Pressure
+
+OOM
+
+Application --> Allocate
+
+Allocate --> Leak
+
+Leak --> Pressure
+
+Pressure --> OOM
+```
+
+---
+
+# Fork Bombs Cause OOM
+
+Example:
+
+```bash
+:(){ :|:& };:
+```
+
+Never execute.
+
+Creates:
+
+```text
+Infinite processes
+
+Infinite memory demand
+```
+
+Machine collapses.
+
+---
+
+# Thrashing Before OOM
+
+Symptoms:
+
+```text
+RAM
+
+↓
+
+Swap
+
+↓
+
+RAM
+
+↓
+
+Swap
+```
+
+CPU stops doing useful work.
+
+---
+
+# Thrashing Diagram
+
+```mermaid
+flowchart LR
+
+RAM
+
+Swap
+
+RAM2
+
+Swap2
+
+RAM --> Swap
+
+Swap --> RAM2
+
+RAM2 --> Swap2
+```
+
+---
+
+# PSI (Pressure Stall Information)
+
+Modern Linux exposes memory pressure.
+
+View:
+
+```bash
+cat /proc/pressure/memory
+```
+
+Very useful.
+
+---
+
+# Example PSI
+
+```text
+some avg10=0.25
+
+full avg10=0.10
+```
+
+Means:
+
+```text
+Processes are waiting for memory.
+```
+
+---
+
+# Production Symptoms Before OOM
+
+Watch for:
+
+```text
+Slow APIs
+
+High latency
+
+Swap growth
+
+Disk spikes
+
+High page faults
+
+Pod restarts
+```
+
+OOM rarely arrives suddenly.
+
+---
+
+# Production Troubleshooting Workflow
+
+Application died?
+
+Think:
+
+```text
+Users
+
+↓
+
+Traffic
+
+↓
+
+Memory Growth
+
+↓
+
+Pressure
+
+↓
+
+Reclaim
+
+↓
+
+Swap
+
+↓
+
+OOM
+```
+
+Find the root cause.
+
+---
+
+# Observability Tools
+
+Memory:
+
+```bash
+free -h
+```
+
+Processes:
+
+```bash
+top
+
+htop
+```
+
+Virtual memory:
+
+```bash
+vmstat
+```
+
+Kernel logs:
+
+```bash
+dmesg
+
+journalctl -k
+```
+
+Pressure:
+
+```bash
+cat /proc/pressure/memory
+```
+
+Process score:
+
+```bash
+cat /proc/PID/oom_score
+```
+
+---
+
+# Important Metrics
+
+Monitor:
+
+```text
+Available memory
+
+Swap usage
+
+Page faults
+
+OOM events
+
+PSI metrics
+
+Container memory
+
+Pod restarts
+```
+
+---
+
+# Performance Implications
+
+Before OOM:
+
+```text
+Latency increases
+
+Disk increases
+
+CPU increases
+
+Throughput decreases
+```
+
+Performance collapses.
+
+---
+
+# Security Considerations
+
+Attackers abuse memory.
+
+Examples:
+
+```text
+Memory bombs
+
+Memory leaks
+
+Fork bombs
+
+Resource exhaustion attacks
+```
+
+Protect systems.
+
+---
+
+# Common Beginner Mistakes
+
+## Mistake 1
+
+Thinking OOM is a bug.
+
+---
+
+## Mistake 2
+
+Ignoring memory limits.
+
+---
+
+## Mistake 3
+
+Giving Java too much RAM.
+
+---
+
+## Mistake 4
+
+Ignoring swap behavior.
+
+---
+
+## Mistake 5
+
+Ignoring PSI metrics.
+
+---
+
+## Mistake 6
+
+Ignoring kernel logs.
+
+---
+
+# Engineering Mindset
+
+Do not think:
+
+```text
+Why did Linux kill my application?
+```
+
+Think:
+
+```text
+Why did Linux decide my application was the least valuable process to keep alive?
+```
+
+That is production engineering.
+
+---
+
+# Interview Questions
+
+### Beginner
+
+What is OOM Killer?
+
+---
+
+### Intermediate
+
+When does Linux invoke OOM Killer?
+
+---
+
+### Intermediate
+
+What is oom_score?
+
+---
+
+### Advanced
+
+How does Linux choose victims?
+
+---
+
+### Advanced
+
+Explain container OOM behavior.
+
+---
+
+### Senior
+
+How does Kubernetes depend on Linux OOM Killer?
+
+---
+
+### Architect
+
+Explain why Linux prioritizes infrastructure survival over application survival.
+
+---
+
+# Mind Map
+
+```mermaid
+mindmap
+
+root((OOM Killer))
+
+Memory Pressure
+
+Reclaim
+
+Swap
+
+Victim Selection
+
+oom_score
+
+oom_score_adj
+
+Containers
+
+Docker
+
+Kubernetes
+
+Memory Leaks
+
+PSI
+
+Observability
+
+Production Failures
+```
+
+---
+
+# Cheat Sheet
+
+```text
+OOM = Out Of Memory Killer
+
+Lifecycle:
+
+Healthy
+
+↓
+
+Pressure
+
+↓
+
+Reclaim
+
+↓
+
+Swap
+
+↓
+
+OOM
+
+Commands:
+
+dmesg
+
+journalctl -k
+
+free -h
+
+vmstat
+
+cat /proc/PID/oom_score
+
+cat /proc/pressure/memory
+
+Golden Rules:
+
+Linux protects systems.
+
+Applications are expendable.
+
+Containers are processes.
+
+Cloud failures often become OOM events.
+```
+
+---
+
+# Final Thought
+
+At planetary scale...
+
+Every Kubernetes cluster...
+
+Every cloud provider...
+
+Every database...
+
+Every AI workload...
+
+Eventually reaches a terrifying question.
+
+> If not everybody can survive, who should die?
+
+Linux has already answered that question.
+
+And that answer is called:
+
+**OOM Killer.**
