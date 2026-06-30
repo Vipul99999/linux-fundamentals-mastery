@@ -1,0 +1,1400 @@
+# Linux Server Won't Boot
+
+> Troubleshooting Track — Exercise 02
+
+> **A Linux server that will not boot is one of the most stressful incidents an engineer can face.**
+>
+> The system is down.
+>
+> SSH is unavailable.
+>
+> Monitoring may be offline.
+>
+> Customers may be impacted.
+>
+> Your job is to systematically determine where the boot process failed and recover safely.
+
+---
+
+# Why This Exercise Exists
+
+Many engineers know how to troubleshoot:
+
+```text
+Running Systems
+```
+
+Few know how to troubleshoot:
+
+```text
+Systems That Never Start
+```
+
+A server that fails during boot is different because:
+
+```text
+No SSH
+
+No Applications
+
+No Kubernetes
+
+No Docker
+
+No Monitoring Agents
+```
+
+You lose most of your normal troubleshooting tools.
+
+Understanding boot failures requires understanding Linux startup from first principles.
+
+---
+
+# The Problem This Exercise Solves
+
+Imagine receiving an alert:
+
+```text
+Production API Offline
+
+Server Unreachable
+
+No SSH Access
+
+Monitoring Agent Down
+```
+
+Questions immediately appear:
+
+```text
+Is Hardware Dead?
+
+Is The Kernel Broken?
+
+Did Filesystem Mount Fail?
+
+Did systemd Fail?
+
+Did Storage Fail?
+
+Did Configuration Change?
+```
+
+This exercise teaches how to answer those questions.
+
+---
+
+# Mental Model
+
+Think of Linux booting like launching a rocket.
+
+```text
+Power
+
+↓
+
+Firmware
+
+↓
+
+Bootloader
+
+↓
+
+Kernel
+
+↓
+
+Init System
+
+↓
+
+Services
+
+↓
+
+Applications
+```
+
+Failure at any stage prevents reaching orbit.
+
+---
+
+# First Principles
+
+A Linux system does not magically start.
+
+Booting is a sequence of dependencies.
+
+```mermaid
+flowchart TD
+
+Power_On
+
+--> Firmware
+
+--> Bootloader
+
+--> Kernel
+
+--> Init_System
+
+--> Services
+
+--> Login
+```
+
+Each stage depends on the previous stage.
+
+---
+
+# Critical Insight
+
+Most boot failures occur because:
+
+```text
+A Dependency Failed
+```
+
+Examples:
+
+```text
+Missing Disk
+
+Corrupt Filesystem
+
+Broken Kernel
+
+Invalid Configuration
+
+Failed Mount
+
+Failed systemd Unit
+```
+
+---
+
+# Linux Boot Process Overview
+
+```mermaid
+flowchart TD
+
+BIOS_UEFI
+
+--> GRUB
+
+--> Linux_Kernel
+
+--> initramfs
+
+--> systemd
+
+--> Services
+
+--> User_Access
+```
+
+---
+
+# Troubleshooting Philosophy
+
+Never begin with:
+
+```text
+Reinstall Linux
+```
+
+Begin with:
+
+```text
+Identify Boot Stage Failure
+```
+
+---
+
+# Stage 1 — Firmware Investigation
+
+The first stage is:
+
+```text
+BIOS
+
+or
+
+UEFI
+```
+
+Responsibilities:
+
+```text
+Hardware Initialization
+
+Device Detection
+
+Boot Device Selection
+```
+
+---
+
+# Symptoms
+
+Possible indicators:
+
+```text
+Black Screen
+
+No Boot Device Found
+
+Firmware Errors
+
+Hardware Detection Failures
+```
+
+---
+
+# Investigation Questions
+
+Determine:
+
+```text
+Does System Power On?
+
+Can Firmware Menu Be Opened?
+
+Is Storage Visible?
+
+Is Boot Device Detected?
+```
+
+---
+
+# Common Causes
+
+```text
+Failed SSD
+
+Loose Disk
+
+Corrupt Firmware Settings
+
+Incorrect Boot Order
+```
+
+---
+
+# Exercise 1
+
+Given:
+
+```text
+No Boot Device Found
+```
+
+List:
+
+```text
+Possible Causes
+
+Verification Steps
+
+Recovery Actions
+```
+
+---
+
+# Stage 2 — GRUB Bootloader Failures
+
+GRUB loads Linux.
+
+Without GRUB:
+
+```text
+Kernel Never Starts
+```
+
+---
+
+# Symptoms
+
+```text
+grub rescue>
+
+Unknown Filesystem
+
+No Such Partition
+
+Missing Kernel
+```
+
+---
+
+# Visualization
+
+```text
+Firmware
+
+↓
+
+GRUB
+
+↓
+
+Kernel
+```
+
+Failure here prevents kernel execution.
+
+---
+
+# Exercise 2
+
+Server displays:
+
+```text
+grub rescue>
+```
+
+Investigate:
+
+```text
+Filesystem
+
+Partitions
+
+GRUB Configuration
+```
+
+Document recovery options.
+
+---
+
+# Common Recovery Commands
+
+Inside rescue environment:
+
+```bash
+ls
+
+set
+
+insmod normal
+
+normal
+```
+
+---
+
+# Stage 3 — Kernel Boot Failures
+
+Kernel begins execution after GRUB.
+
+---
+
+# Responsibilities
+
+```text
+Memory Initialization
+
+Device Detection
+
+Filesystem Discovery
+
+Driver Loading
+```
+
+---
+
+# Symptoms
+
+```text
+Kernel Panic
+
+Unable To Mount Root Filesystem
+
+CPU Lockups
+
+Infinite Reboots
+```
+
+---
+
+# What Is Kernel Panic?
+
+Equivalent of:
+
+```text
+Fatal Error
+```
+
+inside kernel space.
+
+---
+
+# Visualization
+
+```text
+Kernel
+
+↓
+
+Fatal Condition
+
+↓
+
+Kernel Panic
+
+↓
+
+System Halt
+```
+
+---
+
+# Common Causes
+
+```text
+Missing Root Device
+
+Corrupt Kernel
+
+Bad Drivers
+
+Broken initramfs
+
+Filesystem Corruption
+```
+
+---
+
+# Example Kernel Panic
+
+```text
+Kernel panic - not syncing:
+VFS: Unable to mount root fs
+```
+
+---
+
+# Investigation Questions
+
+Determine:
+
+```text
+Can Root Filesystem Be Found?
+
+Did Device Names Change?
+
+Did Storage Fail?
+
+Was Kernel Updated?
+```
+
+---
+
+# Exercise 3
+
+Analyze:
+
+```text
+Kernel Panic:
+Unable to mount root fs
+```
+
+Create investigation plan.
+
+---
+
+# Stage 4 — initramfs Failures
+
+Before mounting root filesystem Linux loads:
+
+```text
+initramfs
+```
+
+---
+
+# Purpose
+
+Contains:
+
+```text
+Drivers
+
+Filesystem Tools
+
+Boot Logic
+```
+
+needed before full system startup.
+
+---
+
+# Symptoms
+
+```text
+initramfs Prompt
+
+Cannot Find Root Device
+
+Boot Hangs
+```
+
+---
+
+# Visualization
+
+```text
+Kernel
+
+↓
+
+initramfs
+
+↓
+
+Root Filesystem
+```
+
+---
+
+# Common Causes
+
+```text
+Missing Drivers
+
+Storage Changes
+
+Corrupted initramfs
+```
+
+---
+
+# Exercise 4
+
+System drops to:
+
+```text
+(initramfs)
+```
+
+What information should be collected?
+
+---
+
+# Stage 5 — Root Filesystem Failures
+
+Linux eventually mounts:
+
+```text
+/
+```
+
+---
+
+# Why This Matters
+
+Without root filesystem:
+
+```text
+System Cannot Continue
+```
+
+---
+
+# Common Causes
+
+```text
+Filesystem Corruption
+
+Failed Disk
+
+Incorrect UUID
+
+Broken fstab
+```
+
+---
+
+# Example Error
+
+```text
+Cannot mount root filesystem
+```
+
+---
+
+# Investigation
+
+Recovery environment:
+
+```bash
+lsblk
+
+blkid
+
+fdisk -l
+```
+
+---
+
+# Questions
+
+```text
+Is Disk Present?
+
+Is Filesystem Healthy?
+
+Do UUIDs Match?
+```
+
+---
+
+# Exercise 5
+
+Investigate a failed mount scenario.
+
+Document:
+
+```text
+Symptoms
+
+Evidence
+
+Recovery Steps
+```
+
+---
+
+# Stage 6 — Filesystem Corruption
+
+One of the most common boot failures.
+
+---
+
+# Symptoms
+
+```text
+Read-only Filesystem
+
+Mount Failures
+
+I/O Errors
+```
+
+---
+
+# Investigation
+
+Check filesystem:
+
+```bash
+fsck /dev/sdX
+```
+
+---
+
+# Visualization
+
+```text
+Filesystem Metadata Corrupt
+
+↓
+
+Mount Failure
+
+↓
+
+Boot Failure
+```
+
+---
+
+# Exercise 6
+
+Simulate:
+
+```text
+Filesystem Corruption
+```
+
+Create recovery workflow.
+
+---
+
+# Stage 7 — fstab Problems
+
+Many production outages are caused by:
+
+```text
+/etc/fstab
+```
+
+---
+
+# Why?
+
+Linux waits for mounts.
+
+Invalid entries can block boot.
+
+---
+
+# Example
+
+```text
+Wrong UUID
+
+Missing Disk
+
+Invalid NFS Mount
+```
+
+---
+
+# Symptoms
+
+```text
+Boot Hangs
+
+Emergency Mode
+
+Dependency Failure
+```
+
+---
+
+# Exercise 7
+
+Analyze:
+
+```text
+Server enters emergency mode after reboot
+```
+
+Investigate:
+
+```text
+fstab
+
+Mounts
+
+Storage Devices
+```
+
+---
+
+# Stage 8 — systemd Failures
+
+Kernel may boot successfully.
+
+systemd may fail.
+
+---
+
+# Responsibilities
+
+```text
+Service Startup
+
+Dependency Ordering
+
+System Initialization
+```
+
+---
+
+# Symptoms
+
+```text
+Boot Delays
+
+Emergency Mode
+
+Failed Units
+```
+
+---
+
+# Investigation
+
+Recovery shell:
+
+```bash
+systemctl --failed
+```
+
+View logs:
+
+```bash
+journalctl -xb
+```
+
+---
+
+# Exercise 8
+
+Investigate:
+
+```text
+Boot Stops At Emergency Mode
+```
+
+Determine failing service.
+
+---
+
+# Stage 9 — Storage Failures
+
+Storage is one of the most common root causes.
+
+---
+
+# Examples
+
+```text
+SSD Failure
+
+RAID Degradation
+
+Cloud Volume Missing
+
+Filesystem Damage
+```
+
+---
+
+# Investigation
+
+```bash
+lsblk
+
+smartctl
+
+dmesg
+```
+
+---
+
+# Visualization
+
+```mermaid
+flowchart TD
+
+Disk Failure
+
+--> Mount Failure
+
+--> Service Failure
+
+--> Boot Failure
+```
+
+---
+
+# Exercise 9
+
+Given:
+
+```text
+Root Disk Missing
+```
+
+Document:
+
+```text
+Detection
+
+Recovery
+
+Verification
+```
+
+---
+
+# Stage 10 — Memory And Hardware Failures
+
+Hardware failures can prevent boot.
+
+---
+
+# Symptoms
+
+```text
+Random Reboots
+
+Kernel Panics
+
+Boot Freezes
+```
+
+---
+
+# Investigation
+
+Check:
+
+```text
+Memory
+
+CPU
+
+Storage
+
+Motherboard Logs
+```
+
+---
+
+# Exercise 10
+
+Create troubleshooting workflow for intermittent boot failures.
+
+---
+
+# Cloud Server Boot Failures
+
+Cloud systems introduce new failure modes.
+
+---
+
+# Examples
+
+```text
+Detached Volume
+
+Corrupted Snapshot
+
+Broken Startup Scripts
+
+Cloud-init Failure
+```
+
+---
+
+# Investigation
+
+Verify:
+
+```text
+Attached Volumes
+
+Boot Logs
+
+Instance Metadata
+```
+
+---
+
+# Linux Boot Investigation Workflow
+
+```mermaid
+flowchart TD
+
+Server Won't Boot
+
+--> Power?
+
+--> Firmware?
+
+--> GRUB?
+
+--> Kernel?
+
+--> initramfs?
+
+--> Filesystem?
+
+--> systemd?
+
+--> Services?
+
+--> Root Cause
+```
+
+---
+
+# Evidence Collection Checklist
+
+Document:
+
+```text
+Error Messages
+
+Screenshots
+
+Boot Logs
+
+Kernel Messages
+
+Recent Changes
+
+Storage State
+```
+
+---
+
+# Recent Change Analysis
+
+Always ask:
+
+```text
+What Changed?
+```
+
+Common answers:
+
+```text
+Kernel Update
+
+Filesystem Change
+
+Disk Replacement
+
+Configuration Update
+
+Cloud Migration
+```
+
+---
+
+# Production Incident #1
+
+## Alert
+
+```text
+Server Reboots Into GRUB Rescue
+```
+
+Investigate:
+
+```text
+Partitions
+
+Filesystem
+
+GRUB Config
+```
+
+---
+
+# Production Incident #2
+
+## Alert
+
+```text
+Kernel Panic After Update
+```
+
+Investigate:
+
+```text
+Kernel Version
+
+Drivers
+
+Modules
+
+Boot Configuration
+```
+
+---
+
+# Production Incident #3
+
+## Alert
+
+```text
+Emergency Mode After Reboot
+```
+
+Investigate:
+
+```text
+fstab
+
+Mounts
+
+Dependencies
+```
+
+---
+
+# Production Incident #4
+
+## Alert
+
+```text
+Cloud VM Won't Start
+```
+
+Investigate:
+
+```text
+Volume Attachments
+
+Boot Logs
+
+Instance Configuration
+```
+
+---
+
+# Production Incident #5
+
+## Alert
+
+```text
+Filesystem Corruption After Power Loss
+```
+
+Investigate:
+
+```text
+fsck
+
+Storage Health
+
+Journal Recovery
+```
+
+---
+
+# Recovery Strategy
+
+Always prioritize:
+
+```text
+Data Protection
+
+Evidence Preservation
+
+Controlled Recovery
+```
+
+---
+
+# Dangerous Actions
+
+Avoid immediately:
+
+```text
+Reinstalling OS
+
+Formatting Disks
+
+Deleting Partitions
+```
+
+without investigation.
+
+---
+
+# Linux Internals Deep Dive
+
+Boot sequence:
+
+```mermaid
+sequenceDiagram
+
+Firmware->>GRUB: Start
+
+GRUB->>Kernel: Load
+
+Kernel->>initramfs: Initialize
+
+initramfs->>Filesystem: Mount Root
+
+Filesystem->>systemd: Start Init
+
+systemd->>Services: Launch
+```
+
+Every failure occurs somewhere in this chain.
+
+---
+
+# Docker And Kubernetes Connection
+
+If node boot fails:
+
+```text
+Containers Fail
+
+Pods Fail
+
+Cluster Capacity Drops
+```
+
+Node health begins with successful Linux boot.
+
+---
+
+# Common Mistakes
+
+## Mistake 1
+
+Assuming hardware is healthy.
+
+---
+
+## Mistake 2
+
+Ignoring recent changes.
+
+---
+
+## Mistake 3
+
+Skipping boot logs.
+
+---
+
+## Mistake 4
+
+Editing configurations blindly.
+
+---
+
+## Mistake 5
+
+Reinstalling too early.
+
+---
+
+## Mistake 6
+
+Failing to preserve evidence.
+
+---
+
+# Engineering Mindset
+
+Beginners ask:
+
+```text
+How Do I Make It Boot?
+```
+
+Engineers ask:
+
+```text
+Where Did Boot Stop?
+
+Why Did It Stop?
+
+What Evidence Exists?
+
+What Is The Safest Recovery?
+```
+
+---
+
+# Interview Questions
+
+1. Describe the Linux boot process.
+2. What is GRUB?
+3. What is initramfs?
+4. What causes kernel panic?
+5. How would you investigate emergency mode?
+6. What is the role of systemd during boot?
+7. How can fstab break boot?
+8. How do you troubleshoot filesystem corruption?
+9. What information should be collected first?
+10. How do you recover from boot failures safely?
+
+---
+
+# Boot Failure Cheat Sheet
+
+```bash
+lsblk
+
+blkid
+
+fdisk -l
+
+fsck
+
+journalctl -xb
+
+systemctl --failed
+
+dmesg
+
+cat /etc/fstab
+
+smartctl -a /dev/sdX
+```
+
+---
+
+# Capstone Challenge
+
+A production Linux server fails after a maintenance reboot.
+
+Symptoms:
+
+```text
+No SSH
+
+Application Down
+
+Kernel Panic Message
+
+Storage Recently Modified
+```
+
+Perform a complete boot failure investigation.
+
+Document:
+
+```text
+Boot Stage
+
+Evidence
+
+Potential Causes
+
+Verification Tests
+
+Root Cause
+
+Recovery Plan
+
+Risk Assessment
+
+Prevention Measures
+```
+
+---
+
+# Completion Criteria
+
+You successfully complete this exercise when you can:
+
+✓ Explain every Linux boot stage
+
+✓ Identify where boot failures occur
+
+✓ Investigate GRUB problems
+
+✓ Analyze kernel panic events
+
+✓ Troubleshoot initramfs failures
+
+✓ Recover from filesystem issues
+
+✓ Debug systemd startup problems
+
+✓ Investigate cloud and physical server boot failures
+
+✓ Apply structured incident response to boot problems
+
+✓ Think like a production infrastructure engineer
+
+Congratulations.
+
+You now understand one of the most critical troubleshooting skills in Linux engineering:
+
+**A server that won't boot is not one problem—it is a sequence of possible failures. Your job is to find exactly where the sequence broke.**
