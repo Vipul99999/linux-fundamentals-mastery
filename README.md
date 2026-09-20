@@ -44,38 +44,6 @@ Linux Fundamentals Mastery
 
 ---
 
-# 🏗 Repository Structure
-
-```text
-linux-fundamentals-mastery/
-│
-├── README.md
-│
-├── 01-linux-introduction/
-├── 02-linux-architecture/
-├── 03-filesystem/
-├── 04-file-operations/
-├── 05-users-and-groups/
-├── 06-permissions/
-├── 07-process-management/
-├── 08-networking/
-├── 09-storage-management/
-├── 10-services-systemd/
-├── 11-bash-scripting/
-│
-├── labs/
-├── exercises/
-├── mini-projects/
-├── troubleshooting/
-├── case-studies/
-├── interview-preparation/
-├── cheatsheets/
-├── diagrams/
-└── resources/
-```
-
----
-
 # 🚀 What You Will Learn
 
 ## Linux Basics
