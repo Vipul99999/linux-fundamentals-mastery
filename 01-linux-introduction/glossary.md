@@ -6,10 +6,10 @@
 
 # Table of Contents
 
-* A
-* B
-* C
-* D
+* A  Absolute Path
+* B  Background Process
+* C  Cgroup
+* D  Daemon
 
 ---
 
